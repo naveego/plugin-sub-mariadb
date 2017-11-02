@@ -9,9 +9,9 @@ workspace:
 
 matrix:
   GOOS: 
+    - linux
     - windows
     - darwin
-    - linux
 
 pipeline:
 
