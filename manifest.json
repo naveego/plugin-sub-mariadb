@@ -1,5 +1,6 @@
 {
-    "name": "MariaDB Subscriber",
+    "name": "sub-mariadb",
+    "displayName": "MariaDB Subscriber",
     "description": "Subscriber which pushes data into MariaDB.",
     "versionDescription": "Version 1",
     "version": "1.0.0",
