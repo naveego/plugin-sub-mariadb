@@ -35,6 +35,7 @@ func TestCreateShapeChangeSQL(t *testing.T) {
 			NewProperties: map[string]string{
 				"id":   "integer",
 				"date": "date",
+				"str":  "string",
 				"sku":  "string",
 			},
 		}
@@ -49,7 +50,8 @@ func TestCreateShapeChangeSQL(t *testing.T) {
 			So(actual, ShouldEqual, e(`CREATE TABLE IF NOT EXISTS "test" (
 	"date" DATETIME NULL,
 	"id" INT(10) NOT NULL,
-	"sku" VARCHAR(1000) NOT NULL,
+	"sku" VARCHAR(255) NOT NULL,
+	"str" VARCHAR(1000) NULL,
 	PRIMARY KEY ("id", "sku")
 )`))
 
@@ -66,7 +68,8 @@ func TestCreateShapeChangeSQL(t *testing.T) {
 				So(actual, ShouldEqual, e(`ALTER TABLE "test"
 	ADD COLUMN IF NOT EXISTS "date" DATETIME NULL
 	,ADD COLUMN IF NOT EXISTS "id" INT(10) NOT NULL
-	,ADD COLUMN IF NOT EXISTS "sku" VARCHAR(1000) NOT NULL
+	,ADD COLUMN IF NOT EXISTS "sku" VARCHAR(255) NOT NULL
+	,ADD COLUMN IF NOT EXISTS "str" VARCHAR(1000) NULL
 	,DROP PRIMARY KEY
 	,ADD PRIMARY KEY ("id", "sku");`))
 
@@ -79,8 +82,8 @@ func TestCreateShapeChangeSQL(t *testing.T) {
 				So(actual, ShouldEqual, e(`ALTER TABLE "test"
 	ADD COLUMN IF NOT EXISTS "date" DATETIME NULL
 	,ADD COLUMN IF NOT EXISTS "id" INT(10) NOT NULL
-	,ADD COLUMN IF NOT EXISTS "sku" VARCHAR(1000) NOT NULL;`))
-
+	,ADD COLUMN IF NOT EXISTS "sku" VARCHAR(255) NOT NULL
+	,ADD COLUMN IF NOT EXISTS "str" VARCHAR(1000) NULL;`))
 			})
 
 		})
@@ -92,19 +95,26 @@ func TestCreateUpsertSQL(t *testing.T) {
 
 	Convey("Given a datapoint and a known shape", t, func() {
 
+		longKeyValue := ""
+		for index := 0; index < 32; index++ {
+			longKeyValue = longKeyValue + "12345678"
+		}
+		expectedLongKeyValue := longKeyValue[:255]
+
 		dp := pipeline.DataPoint{
 			Entity: "Products",
 			Source: "Test",
 
 			Shape: pipeline.Shape{
-				KeyNames:   []string{"ID"},
-				Properties: []string{"NextDateAvailable:date", "ID:integer", "Name:string", "Price:float"},
+				KeyNames:   []string{"ID", "LongKey"},
+				Properties: []string{"NextDateAvailable:date", "ID:integer", "Name:string", "Price:float", "LongKey:string"},
 			},
 			Data: map[string]interface{}{
 				"Name":              "First",
 				"Price":             42.2,
 				"ID":                1,
 				"NextDateAvailable": "2017-10-11",
+				"LongKey":           longKeyValue,
 			},
 		}
 
@@ -116,14 +126,14 @@ func TestCreateUpsertSQL(t *testing.T) {
 			Convey("Then there should be no error", nil)
 			So(err, ShouldBeNil)
 			Convey("Then the SQL should be correct", nil)
-			So(actual, ShouldEqual, e(`INSERT INTO "Test.Products" ("ID", "Name", "NextDateAvailable", "Price")
-	VALUES (?, ?, ?, ?)
+			So(actual, ShouldEqual, e(`INSERT INTO "Test.Products" ("ID", "LongKey", "Name", "NextDateAvailable", "Price")
+	VALUES (?, ?, ?, ?, ?)
 	ON DUPLICATE KEY UPDATE
 		"Name" = VALUES("Name")
 		,"NextDateAvailable" = VALUES("NextDateAvailable")
 		,"Price" = VALUES("Price");`))
 			Convey("Then the parameters should be in the correct order", nil)
-			So(params, ShouldResemble, []interface{}{1, "First", "2017-10-11", 42.2})
+			So(params, ShouldResemble, []interface{}{1, expectedLongKeyValue, "First", "2017-10-11", 42.2})
 
 			// Convey("Then the cache should be populated", func() {
 			// 	_, ok := shape.Get(keyUpsertSQL)

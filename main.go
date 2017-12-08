@@ -14,7 +14,7 @@
 
 package main
 
-import "github.com/naveego/pipeline-subscribers/sql/mariadb-sub/cmd"
+import "github.com/naveego/plugin-sub-mariadb/cmd"
 
 func main() {
 	cmd.Execute()

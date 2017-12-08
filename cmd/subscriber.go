@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"github.com/mitchellh/mapstructure"
 	"github.com/naveego/api/pipeline/subscriber"
 	"github.com/naveego/api/types/pipeline"
 	"github.com/naveego/navigator-go/subscribers/protocol"
 	"github.com/naveego/pipeline-subscribers/shapeutils"
+	"github.com/sirupsen/logrus"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -176,7 +176,7 @@ func (h *mariaSubscriber) ReceiveDataPoint(request protocol.ReceiveShapeRequest)
 
 		return protocol.ReceiveShapeResponse{
 			Success: false,
-		}, nil
+		}, err
 	}
 
 	return protocol.ReceiveShapeResponse{

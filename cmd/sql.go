@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -77,14 +78,14 @@ func createShapeChangeSQL(shapeInfo shapeutils.ShapeDelta) (string, error) {
 
 	for n, t := range shapeInfo.NewProperties {
 		columnModel := sqlColumnModel{
-			Name:    escapeString(n),
-			SqlType: convertToSQLType(t),
+			Name: escapeString(n),
 		}
 		for _, k := range model.Keys {
 			if k == n {
 				columnModel.IsKey = true
 			}
 		}
+		columnModel.SqlType = convertToSQLType(t, columnModel.IsKey)
 
 		model.Columns = append(model.Columns, columnModel)
 	}
@@ -156,14 +157,14 @@ func createUpsertSQL(datapoint pipeline.DataPoint, knownShape *shapeutils.KnownS
 	}
 	for _, p := range knownShape.Properties {
 		columnModel := sqlColumnModel{
-			Name:    escapeString(p.Name),
-			SqlType: convertToSQLType(p.Type),
+			Name: escapeString(p.Name),
 		}
 		for _, k := range knownShape.Keys {
 			if k == p.Name {
 				columnModel.IsKey = true
 			}
 		}
+		columnModel.SqlType = convertToSQLType(p.Type, columnModel.IsKey)
 
 		model.Columns = append(model.Columns, columnModel)
 	}
@@ -221,10 +222,25 @@ func formatValue(t string, value interface{}) interface{} {
 		}
 	}
 
+	if strings.HasPrefix(t, "VARCHAR(") {
+		if valueString, ok := value.(string); ok {
+			sizeStr := strings.TrimRight(strings.TrimPrefix(t, "VARCHAR("), ")")
+			size, err := strconv.Atoi(sizeStr)
+			if err != nil {
+				size = 255
+			}
+			if size < len(valueString) {
+				valueString = valueString[:size]
+			}
+
+			return valueString
+		}
+	}
+
 	return value
 }
 
-func convertToSQLType(t string) string {
+func convertToSQLType(t string, isKey bool) string {
 	switch t {
 	case "date":
 		return "DATETIME"
@@ -234,6 +250,10 @@ func convertToSQLType(t string) string {
 		return "FLOAT"
 	case "bool":
 		return "BIT"
+	}
+
+	if isKey {
+		return "VARCHAR(255)"
 	}
 
 	return "VARCHAR(1000)"
