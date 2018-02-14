@@ -5,7 +5,7 @@
     "versionDescription": "Version 1",
     "version": "1.0.0",
     "iconFile": "icon.png",
-    "executable": "plugin-sub-mariadb",
+    "executable": "plugin-sub-mariadb.exe",
     "kind": "subscriber",
     "configSchema": [
         {
