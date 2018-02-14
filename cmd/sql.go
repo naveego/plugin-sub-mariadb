@@ -16,8 +16,12 @@ import (
 const MySQLTimeFormat = "2006-01-02 15:04:05"
 
 const createTemplateText = `CREATE TABLE IF NOT EXISTS {{tick .Name}} ({{range .Columns}}
-	{{tick .Name}} {{.SqlType}} {{if .IsKey}}NOT {{end}}NULL,{{end}}{{if gt (len .Keys) 0}}
-	PRIMARY KEY ({{jointick .Keys}}){{end}}
+	{{tick .Name}} {{.SqlType}} {{if .IsKey}}NOT {{end}}NULL,{{end}}
+	{{tick "naveegoPublisher"}} VARCHAR(1000) DEFAULT NULL,
+	{{tick "naveegoPublishedAt"}} DATETIME DEFAULT NULL,
+	{{tick "naveegoCreatedAt"}} DATETIME DEFAULT CURRENT_TIMESTAMP,
+	{{tick "naveegoShapeVersion"}} VARCHAR(50) DEFAULT NULL,
+	{{if gt (len .Keys) 0}}PRIMARY KEY ({{jointick .Keys}}){{end}}
 )`
 
 const alterTemplateText = `ALTER TABLE {{tick .Name}}{{range $i, $e := .Columns}}
@@ -25,10 +29,14 @@ const alterTemplateText = `ALTER TABLE {{tick .Name}}{{range $i, $e := .Columns}
 	,DROP PRIMARY KEY
 	,ADD PRIMARY KEY ({{jointick .Keys}}){{end}};`
 
-const upsertTemplateText = `INSERT INTO {{tick .Name}} ({{range $i, $e := .Columns}}{{if $i}}, {{end}}{{tick $e.Name}}{{end}})
-	VALUES ({{range $i, $e := .Columns}}{{if $i}}, {{end}}?{{end}})
+const upsertTemplateText = `INSERT INTO {{tick .Name}} ({{range $i, $e := .Columns}}{{tick $e.Name}}, {{end}}
+	{{tick "naveegoPublisher"}}, {{tick "naveegoPublishedAt"}}, {{tick "naveegoShapeVersion"}})
+	VALUES ({{range $i, $e := .Columns}}?, {{end}}?, ?, ?)
 	ON DUPLICATE KEY UPDATE{{range $i, $e := .NonKeyColumns}}{{if not $e.IsKey}}
-		{{if $i}},{{end}}{{tick $e.Name}} = VALUES({{tick $e.Name}}){{end}}{{end}};`
+		{{tick $e.Name}} = VALUES({{tick $e.Name}}),{{end}}{{end}}
+		{{tick "naveegoPublisher"}} = VALUES({{tick "naveegoPublisher"}}),
+		{{tick "naveegoPublishedAt"}} = VALUES({{tick "naveegoPublishedAt"}}),
+		{{tick "naveegoShapeVersion"}} = VALUES({{tick "naveegoShapeVersion"}});`
 
 var (
 	alterTemplate  *template.Template
@@ -201,6 +209,26 @@ func createUpsertSQL(datapoint pipeline.DataPoint, knownShape *shapeutils.KnownS
 			p = append(p, formattedValue)
 		}
 
+		// set the Naveego system column values as parameters
+		pub, ok := datapoint.Meta["publisher"]
+		if !ok {
+			pub = "UNKNOWN"
+		}
+
+		pubAt, ok := datapoint.Meta["publishedAt"]
+		if !ok {
+			pubAt = time.Now().UTC().Format(time.RFC3339)
+		}
+
+		shapeVer, ok := datapoint.Meta["shapeVersion"]
+		if !ok {
+			shapeVer = "UNKNOWN"
+		}
+
+		p = append(p, formatValue("VARCHAR(1000)", pub))
+		p = append(p, formatValue("DATETIME", pubAt))
+		p = append(p, formatValue("VARCHAR(50)", shapeVer))
+
 		return p
 	}
 
@@ -219,6 +247,10 @@ func formatValue(t string, value interface{}) interface{} {
 			if date, err := time.Parse(time.RFC3339, dateString); err == nil {
 				return date.UTC().Format(MySQLTimeFormat)
 			}
+		}
+	case "TEXT":
+		if valueString, ok := value.(string); ok {
+			return valueString
 		}
 	}
 
@@ -250,6 +282,8 @@ func convertToSQLType(t string, isKey bool) string {
 		return "FLOAT"
 	case "bool":
 		return "BIT"
+	case "text":
+		return "TEXT"
 	}
 
 	if isKey {
