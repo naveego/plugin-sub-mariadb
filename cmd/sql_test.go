@@ -59,6 +59,10 @@ func TestCreateShapeChangeSQL(t *testing.T) {
 				"str":  "string",
 				"sku":  "string",
 			},
+			NewPropertyNameToVirtualName: map[string]string{
+				"id":  "VIRTUAL_ID",
+				"str": "VIRTUAL_STR",
+			},
 		}
 
 		Convey("When the shape is new", func() {
@@ -68,11 +72,13 @@ func TestCreateShapeChangeSQL(t *testing.T) {
 
 			actual, err := createShapeChangeSQL(shape)
 			So(err, ShouldBeNil)
-			So(actual, ShouldEqual, e(`CREATE TABLE IF NOT EXISTS "test" (
+			So(actual, ShouldEqual, e(`CREATE OR REPLACE TABLE "test" (
 	"date" DATETIME NULL,
 	"id" INT(10) NOT NULL,
 	"sku" VARCHAR(255) NOT NULL,
 	"str" VARCHAR(1000) NULL,
+	"VIRTUAL_ID" INT(10) AS ("id") VIRTUAL,
+	"VIRTUAL_STR" VARCHAR(1000) AS ("str") VIRTUAL,
 	"naveegoPublisher" VARCHAR(1000) DEFAULT NULL,
 	"naveegoPublishedAt" DATETIME DEFAULT NULL,
 	"naveegoCreatedAt" DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -151,7 +157,7 @@ func TestCreateUpsertSQL(t *testing.T) {
 			Convey("Then there should be no error", nil)
 			So(err, ShouldBeNil)
 			Convey("Then the SQL should be correct", nil)
-			So(actual, ShouldEqual, e(`INSERT INTO "Test.Products" ("ID", "LongKey", "LongText", "Name", "NextDateAvailable", "Price", 
+			So(actual, ShouldEqual, e(`INSERT INTO "Products" ("ID", "LongKey", "LongText", "Name", "NextDateAvailable", "Price", 
 	"naveegoPublisher", "naveegoPublishedAt", "naveegoShapeVersion")
 	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON DUPLICATE KEY UPDATE

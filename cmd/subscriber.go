@@ -18,7 +18,6 @@ import (
 
 type mariaSubscriber struct {
 	db             *sql.DB // The connection to the database
-	tx             *sql.Tx
 	connectionInfo string
 	knownShapes    shapeutils.ShapeCache
 }
@@ -47,8 +46,6 @@ func (h *mariaSubscriber) Init(request protocol.InitRequest) (protocol.InitRespo
 		return response, err
 	}
 
-	h.tx, err = h.db.Begin()
-
 	if err != nil {
 		return response, err
 	}
@@ -69,16 +66,6 @@ func (h *mariaSubscriber) Dispose(request protocol.DisposeRequest) (protocol.Dis
 	}
 
 	var err error
-
-	if h.tx != nil {
-		err = h.tx.Commit()
-		if err != nil {
-			return protocol.DisposeResponse{
-				Success: true,
-				Message: "Error while committing transaction.",
-			}, err
-		}
-	}
 
 	err = h.db.Close()
 	h.db = nil
@@ -140,6 +127,10 @@ func (h *mariaSubscriber) ReceiveDataPoint(request protocol.ReceiveShapeRequest)
 	}
 
 	knownShape, ok = h.knownShapes.GetKnownShape(request.DataPoint)
+
+	if !ok && request.DataPoint.Action != pipeline.DataPointStartPublish {
+		return response, errors.New("data point shape was incompatible with shape defined in start-publish data point for this batch")
+	}
 
 	if !ok {
 
@@ -319,6 +310,10 @@ func (h *mariaSubscriber) getKnownShapes() (map[string]*shapeutils.KnownShape, e
 			if err != nil {
 				return shapes, err
 			}
+			if strings.HasPrefix(field, "naveego") {
+				continue
+			}
+
 			dp.Source = table
 			if key == "PRI" {
 				dp.Shape.KeyNames = append(dp.Shape.KeyNames, field)

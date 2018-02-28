@@ -15,8 +15,9 @@ import (
 
 const MySQLTimeFormat = "2006-01-02 15:04:05"
 
-const createTemplateText = `CREATE TABLE IF NOT EXISTS {{tick .Name}} ({{range .Columns}}
-	{{tick .Name}} {{.SqlType}} {{if .IsKey}}NOT {{end}}NULL,{{end}}
+const createTemplateText = `CREATE OR REPLACE TABLE {{tick .Name}} ({{range .Columns}}
+	{{tick .Name}} {{.SqlType}} {{if .IsKey}}NOT {{end}}NULL,{{end}}{{range .VirtualColumns}}
+	{{tick .Name}} {{.SqlType}} AS ({{tick .FromName}}) VIRTUAL,{{end}}
 	{{tick "naveegoPublisher"}} VARCHAR(1000) DEFAULT NULL,
 	{{tick "naveegoPublishedAt"}} DATETIME DEFAULT NULL,
 	{{tick "naveegoCreatedAt"}} DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -96,6 +97,19 @@ func createShapeChangeSQL(shapeInfo shapeutils.ShapeDelta) (string, error) {
 		columnModel.SqlType = convertToSQLType(t, columnModel.IsKey)
 
 		model.Columns = append(model.Columns, columnModel)
+
+		if friendlyName, ok := shapeInfo.NewPropertyNameToVirtualName[n]; ok {
+			vm := virtualSqlColumnModel{
+				sqlColumnModel: sqlColumnModel{
+					Name:    escapeString(friendlyName),
+					SqlType: columnModel.SqlType,
+					IsKey:   columnModel.IsKey,
+				},
+				FromName: columnModel.Name,
+			}
+			model.VirtualColumns = append(model.VirtualColumns, vm)
+		}
+
 	}
 
 	sort.Sort(model.Columns)
@@ -120,10 +134,11 @@ func createShapeChangeSQL(shapeInfo shapeutils.ShapeDelta) (string, error) {
 }
 
 type sqlTableModel struct {
-	Name          string
-	Columns       sqlColumns
-	NonKeyColumns sqlColumns
-	Keys          []string
+	Name           string
+	Columns        sqlColumns
+	VirtualColumns []virtualSqlColumnModel
+	NonKeyColumns  sqlColumns
+	Keys           []string
 }
 
 type sqlColumns []sqlColumnModel
@@ -132,6 +147,11 @@ type sqlColumnModel struct {
 	Name    string
 	SqlType string
 	IsKey   bool
+}
+
+type virtualSqlColumnModel struct {
+	sqlColumnModel
+	FromName string
 }
 
 func (s sqlColumns) Len() int {
@@ -276,9 +296,9 @@ func convertToSQLType(t string, isKey bool) string {
 	switch t {
 	case "date":
 		return "DATETIME"
-	case "integer":
+	case "integer", "int":
 		return "INT(10)"
-	case "float":
+	case "float", "decimal", "double":
 		return "FLOAT"
 	case "bool":
 		return "BIT"
