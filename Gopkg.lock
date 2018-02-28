@@ -101,7 +101,7 @@
   branch = "develop"
   name = "github.com/naveego/pipeline-subscribers"
   packages = ["shapeutils"]
-  revision = "1b138cf85110833ce7410c8b55d9e93fc7cf444b"
+  revision = "f26b1c63593bcf292a10f2e59aa422a805ba7e26"
 
 [[projects]]
   name = "github.com/pierrec/lz4"
