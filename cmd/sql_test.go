@@ -70,9 +70,9 @@ func TestCreateShapeChangeSQL(t *testing.T) {
 
 			Convey("Then the SQL should be a CREATE statement", nil)
 
-			actual, err := createShapeChangeSQL(shape, "view_name")
+			table, view, err := createShapeChangeSQL(shape, "view_name")
 			So(err, ShouldBeNil)
-			So(actual, ShouldEqual, e(`CREATE OR REPLACE TABLE "test" (
+			So(table, ShouldEqual, e(`CREATE OR REPLACE TABLE "test" (
 	"date" DATETIME NULL,
 	"id" INT(10) NOT NULL,
 	"sku" VARCHAR(255) NOT NULL,
@@ -85,7 +85,8 @@ func TestCreateShapeChangeSQL(t *testing.T) {
 	"naveegoShapeVersion" VARCHAR(50) DEFAULT NULL,
 	PRIMARY KEY ("id", "sku")
 );
-CREATE OR REPLACE VIEW "view_name" (
+`))
+			So(view, ShouldEqual, e(`CREATE OR REPLACE VIEW "view_name" (
 	"VIRTUAL_ID",
 	"VIRTUAL_STR",
 	"naveegoPublisher",

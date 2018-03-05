@@ -141,18 +141,21 @@ func (h *mariaSubscriber) ReceiveDataPoint(request protocol.ReceiveShapeRequest)
 			viewName = request.DataPoint.Entity + "_VIEW"
 		}
 
-		sqlCommand, err := createShapeChangeSQL(shapeDelta, viewName)
+		tableCommand, viewCommand, err := createShapeChangeSQL(shapeDelta, viewName)
 		if err != nil {
 			return response, err
 		}
 
-		logrus.WithField("sql", sqlCommand).Debug("Updating table")
+		logrus.WithField("table", tableCommand).WithField("view", viewCommand).Debug("Creating table and view.")
 
-		_, err = h.db.Exec(sqlCommand)
+		for _, sql := range []string{tableCommand, viewCommand} {
 
-		if err != nil {
-			logrus.WithField("request", request).WithError(err).WithField("sql", sqlCommand).Error("Error executing command")
-			return response, err
+			_, err = h.db.Exec(sql)
+
+			if err != nil {
+				logrus.WithField("request", request).WithError(err).WithField("sql", sql).Error("Error executing command")
+				return response, err
+			}
 		}
 
 		knownShape = h.knownShapes.ApplyDelta(shapeDelta)

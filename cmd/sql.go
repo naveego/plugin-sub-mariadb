@@ -87,12 +87,7 @@ func init() {
 
 }
 
-func createShapeChangeSQL(shapeInfo shapeutils.ShapeDelta, viewName string) (string, error) {
-
-	var (
-		err error
-		w   = &bytes.Buffer{}
-	)
+func createShapeChangeSQL(shapeInfo shapeutils.ShapeDelta, viewName string) (table string, view string, err error) {
 
 	model := sqlTableModel{
 		Name:        escapeString(shapeInfo.Name),
@@ -142,21 +137,23 @@ func createShapeChangeSQL(shapeInfo shapeutils.ShapeDelta, viewName string) (str
 		}
 	}
 
-	if shapeInfo.IsNew {
-		err = createTemplate.Execute(w, model)
-		if err == nil {
-			err = createViewTemplate.Execute(w, model)
-		}
-	} else {
-		if !shapeInfo.HasKeyChanges {
-			model.Keys = nil
-		}
-		err = alterTemplate.Execute(w, model)
+	var (
+		tb = &bytes.Buffer{}
+		vb = &bytes.Buffer{}
+	)
+
+	err = createTemplate.Execute(tb, model)
+	if err != nil {
+		return
+	}
+	err = createViewTemplate.Execute(vb, model)
+	if err != nil {
+		return
 	}
 
-	command := w.String()
-
-	return command, err
+	table = tb.String()
+	view = vb.String()
+	return
 }
 
 type sqlTableModel struct {
