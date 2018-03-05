@@ -153,21 +153,25 @@ func (h *mariaSubscriber) ReceiveDataPoint(request protocol.ReceiveShapeRequest)
 		knownShape = h.knownShapes.ApplyDelta(shapeDelta)
 	}
 
-	upsertCommand, upsertParameters, err := createUpsertSQL(request.DataPoint, knownShape)
-	if err != nil {
-		return response, err
-	}
+	if request.DataPoint.Action == pipeline.DataPointUpsert {
 
-	logrus.WithFields(logrus.Fields{"sql": upsertCommand, "params": upsertParameters}).Debug("Upserting record")
+		upsertCommand, upsertParameters, err := createUpsertSQL(request.DataPoint, knownShape)
+		if err != nil {
+			return response, err
+		}
 
-	_, err = h.db.Exec(upsertCommand, upsertParameters...)
+		logrus.WithFields(logrus.Fields{"sql": upsertCommand, "params": upsertParameters}).Debug("Upserting record")
 
-	if err != nil {
-		logrus.WithField("request", request).WithError(err).WithField("sql", upsertCommand).WithField("parameters", upsertParameters).Error("Error executing upsert")
+		_, err = h.db.Exec(upsertCommand, upsertParameters...)
 
-		return protocol.ReceiveShapeResponse{
-			Success: false,
-		}, err
+		if err != nil {
+			logrus.WithField("request", request).WithError(err).WithField("sql", upsertCommand).WithField("parameters", upsertParameters).Error("Error executing upsert")
+
+			return protocol.ReceiveShapeResponse{
+				Success: false,
+			}, err
+		}
+
 	}
 
 	return protocol.ReceiveShapeResponse{
