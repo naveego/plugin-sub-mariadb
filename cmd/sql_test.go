@@ -70,7 +70,7 @@ func TestCreateShapeChangeSQL(t *testing.T) {
 
 			Convey("Then the SQL should be a CREATE statement", nil)
 
-			actual, err := createShapeChangeSQL(shape)
+			actual, err := createShapeChangeSQL(shape, "view_name")
 			So(err, ShouldBeNil)
 			So(actual, ShouldEqual, e(`CREATE OR REPLACE TABLE "test" (
 	"date" DATETIME NULL,
@@ -84,38 +84,24 @@ func TestCreateShapeChangeSQL(t *testing.T) {
 	"naveegoCreatedAt" DATETIME DEFAULT CURRENT_TIMESTAMP,
 	"naveegoShapeVersion" VARCHAR(50) DEFAULT NULL,
 	PRIMARY KEY ("id", "sku")
-)`))
-
-		})
-
-		Convey("When the shape is not new", func() {
-			shape.IsNew = false
-
-			Convey("When there are new keys", func() {
-				shape.HasKeyChanges = true
-				Convey("The the SQL should be an ALTER statement", nil)
-				actual, err := createShapeChangeSQL(shape)
-				So(err, ShouldBeNil)
-				So(actual, ShouldEqual, e(`ALTER TABLE "test"
-	ADD COLUMN IF NOT EXISTS "date" DATETIME NULL
-	,ADD COLUMN IF NOT EXISTS "id" INT(10) NOT NULL
-	,ADD COLUMN IF NOT EXISTS "sku" VARCHAR(255) NOT NULL
-	,ADD COLUMN IF NOT EXISTS "str" VARCHAR(1000) NULL
-	,DROP PRIMARY KEY
-	,ADD PRIMARY KEY ("id", "sku");`))
-
-			})
-
-			Convey("When there are not new keys", func() {
-				Convey("The the SQL should be an ALTER statement", nil)
-				actual, err := createShapeChangeSQL(shape)
-				So(err, ShouldBeNil)
-				So(actual, ShouldEqual, e(`ALTER TABLE "test"
-	ADD COLUMN IF NOT EXISTS "date" DATETIME NULL
-	,ADD COLUMN IF NOT EXISTS "id" INT(10) NOT NULL
-	,ADD COLUMN IF NOT EXISTS "sku" VARCHAR(255) NOT NULL
-	,ADD COLUMN IF NOT EXISTS "str" VARCHAR(1000) NULL;`))
-			})
+);
+CREATE OR REPLACE VIEW "view_name" (
+	"VIRTUAL_ID",
+	"VIRTUAL_STR",
+	"naveegoPublisher",
+	"naveegoPublishedAt",
+	"naveegoCreatedAt",
+	"naveegoShapeVersion"
+)
+AS SELECT 
+	"id",
+	"str",
+	"naveegoPublisher",
+	"naveegoPublishedAt",
+	"naveegoCreatedAt",
+	"naveegoShapeVersion"
+FROM "test";
+`))
 
 		})
 	})

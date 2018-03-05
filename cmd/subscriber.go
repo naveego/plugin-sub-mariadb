@@ -136,7 +136,12 @@ func (h *mariaSubscriber) ReceiveDataPoint(request protocol.ReceiveShapeRequest)
 
 		shapeDelta = h.knownShapes.Analyze(request.DataPoint)
 
-		sqlCommand, err := createShapeChangeSQL(shapeDelta)
+		viewName := request.DataPoint.Meta["shapeName"]
+		if viewName == "" {
+			viewName = request.DataPoint.Entity + "_VIEW"
+		}
+
+		sqlCommand, err := createShapeChangeSQL(shapeDelta, viewName)
 		if err != nil {
 			return response, err
 		}

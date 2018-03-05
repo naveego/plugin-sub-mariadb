@@ -23,7 +23,24 @@ const createTemplateText = `CREATE OR REPLACE TABLE {{tick .Name}} ({{range .Col
 	{{tick "naveegoCreatedAt"}} DATETIME DEFAULT CURRENT_TIMESTAMP,
 	{{tick "naveegoShapeVersion"}} VARCHAR(50) DEFAULT NULL,
 	{{if gt (len .Keys) 0}}PRIMARY KEY ({{jointick .Keys}}){{end}}
-)`
+);
+`
+
+const createViewTemplateText = `CREATE OR REPLACE VIEW {{tick .VirtualName}} ({{range .VirtualColumns}}
+	{{tick .Name}},{{end}}
+	{{tick "naveegoPublisher"}},
+	{{tick "naveegoPublishedAt"}},
+	{{tick "naveegoCreatedAt"}},
+	{{tick "naveegoShapeVersion"}}
+)
+AS SELECT {{range .VirtualColumns}}
+	{{tick .FromName}},{{end}}
+	{{tick "naveegoPublisher"}},
+	{{tick "naveegoPublishedAt"}},
+	{{tick "naveegoCreatedAt"}},
+	{{tick "naveegoShapeVersion"}}
+FROM {{tick .Name}};
+`
 
 const alterTemplateText = `ALTER TABLE {{tick .Name}}{{range $i, $e := .Columns}}
 	{{if $i}},{{end}}ADD COLUMN IF NOT EXISTS {{tick $e.Name}} {{$e.SqlType}} {{if $e.IsKey}}NOT {{end}}NULL{{end}}{{if gt (len .Keys) 0}}
@@ -40,9 +57,10 @@ const upsertTemplateText = `INSERT INTO {{tick .Name}} ({{range $i, $e := .Colum
 		{{tick "naveegoShapeVersion"}} = VALUES({{tick "naveegoShapeVersion"}});`
 
 var (
-	alterTemplate  *template.Template
-	createTemplate *template.Template
-	upsertTemplate *template.Template
+	alterTemplate      *template.Template
+	createTemplate     *template.Template
+	createViewTemplate *template.Template
+	upsertTemplate     *template.Template
 )
 
 func init() {
@@ -59,13 +77,17 @@ func init() {
 		Funcs(funcs).
 		Parse(createTemplateText))
 
+	createViewTemplate = template.Must(template.New("create").
+		Funcs(funcs).
+		Parse(createViewTemplateText))
+
 	upsertTemplate = template.Must(template.New("upsert").
 		Funcs(funcs).
 		Parse(upsertTemplateText))
 
 }
 
-func createShapeChangeSQL(shapeInfo shapeutils.ShapeDelta) (string, error) {
+func createShapeChangeSQL(shapeInfo shapeutils.ShapeDelta, viewName string) (string, error) {
 
 	var (
 		err error
@@ -73,8 +95,9 @@ func createShapeChangeSQL(shapeInfo shapeutils.ShapeDelta) (string, error) {
 	)
 
 	model := sqlTableModel{
-		Name: escapeString(shapeInfo.Name),
-		Keys: shapeInfo.NewKeys,
+		Name:        escapeString(shapeInfo.Name),
+		Keys:        shapeInfo.NewKeys,
+		VirtualName: viewName,
 	}
 
 	if !shapeInfo.IsNew {
@@ -121,6 +144,9 @@ func createShapeChangeSQL(shapeInfo shapeutils.ShapeDelta) (string, error) {
 
 	if shapeInfo.IsNew {
 		err = createTemplate.Execute(w, model)
+		if err == nil {
+			err = createViewTemplate.Execute(w, model)
+		}
 	} else {
 		if !shapeInfo.HasKeyChanges {
 			model.Keys = nil
@@ -135,6 +161,7 @@ func createShapeChangeSQL(shapeInfo shapeutils.ShapeDelta) (string, error) {
 
 type sqlTableModel struct {
 	Name           string
+	VirtualName    string
 	Columns        sqlColumns
 	VirtualColumns []virtualSqlColumnModel
 	NonKeyColumns  sqlColumns
