@@ -90,9 +90,9 @@ func init() {
 func createShapeChangeSQL(shapeInfo shapeutils.ShapeDelta, viewName string) (table string, view string, err error) {
 
 	model := sqlTableModel{
-		Name:        escapeString(shapeInfo.Name),
+		Name:        shapeInfo.Name,
 		Keys:        shapeInfo.NewKeys,
-		VirtualName: viewName,
+		VirtualName: escapeString(viewName),
 	}
 
 	if !shapeInfo.IsNew {
@@ -105,7 +105,7 @@ func createShapeChangeSQL(shapeInfo shapeutils.ShapeDelta, viewName string) (tab
 
 	for n, t := range shapeInfo.NewProperties {
 		columnModel := sqlColumnModel{
-			Name: escapeString(n),
+			Name: n,
 		}
 		for _, k := range model.Keys {
 			if k == n {
@@ -354,7 +354,7 @@ func convertFromSQLType(t string) string {
 	return "string"
 }
 
-var sqlCleaner = regexp.MustCompile(`[^A-z0-9_\-\. ]|` + "`")
+var sqlCleaner = regexp.MustCompile(`[^A-z0-9_\-\. ~]|` + "`")
 
 func escapeArgs(args ...string) []interface{} {
 	safeArgs := make([]interface{}, len(args))
