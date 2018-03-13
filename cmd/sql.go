@@ -117,12 +117,10 @@ func createShapeChangeSQL(shapeInfo shapeutils.ShapeDelta, viewName string) (tab
 		model.Columns = append(model.Columns, columnModel)
 
 		if friendlyName, ok := shapeInfo.NewPropertyNameToVirtualName[n]; ok {
-			vm := virtualSqlColumnModel{
-				sqlColumnModel: sqlColumnModel{
-					Name:    escapeString(friendlyName),
-					SqlType: columnModel.SqlType,
-					IsKey:   columnModel.IsKey,
-				},
+			vm := sqlColumnModel{
+				Name:     escapeString(friendlyName),
+				SqlType:  columnModel.SqlType,
+				IsKey:    columnModel.IsKey,
 				FromName: columnModel.Name,
 			}
 			model.VirtualColumns = append(model.VirtualColumns, vm)
@@ -131,6 +129,7 @@ func createShapeChangeSQL(shapeInfo shapeutils.ShapeDelta, viewName string) (tab
 	}
 
 	sort.Sort(model.Columns)
+	sort.Sort(model.VirtualColumns)
 	for _, c := range model.Columns {
 		if !c.IsKey {
 			model.NonKeyColumns = append(model.NonKeyColumns, c)
@@ -160,7 +159,7 @@ type sqlTableModel struct {
 	Name           string
 	VirtualName    string
 	Columns        sqlColumns
-	VirtualColumns []virtualSqlColumnModel
+	VirtualColumns sqlColumns
 	NonKeyColumns  sqlColumns
 	Keys           []string
 }
@@ -168,13 +167,9 @@ type sqlTableModel struct {
 type sqlColumns []sqlColumnModel
 
 type sqlColumnModel struct {
-	Name    string
-	SqlType string
-	IsKey   bool
-}
-
-type virtualSqlColumnModel struct {
-	sqlColumnModel
+	Name     string
+	SqlType  string
+	IsKey    bool
 	FromName string
 }
 
